@@ -1,0 +1,46 @@
+rm(list=ls())
+library(tidyverse)
+library(neuralnet)
+library(GGally)
+url <- 'http://archive.ics.uci.edu/ml/machine-learning-databases//haberman/haberman.data'
+
+Hab_Data <- read_csv(file = url,
+                     col_names = c('Age', 'Operation_Year', 
+                                   'Number_Pos_Nodes','Survival')) %>%
+  na.omit() %>%
+  mutate(Survival = ifelse(Survival == 2, 0, 1),
+         Survival = factor(Survival))
+
+ggpairs(Hab_Data)
+
+scale01 <- function(x){
+  (x - min(x)) / (max(x) - min(x))
+}
+
+Hab_Data <- Hab_Data %>%
+  mutate(Age = scale01(Age), 
+         Operation_Year = scale01(Operation_Year), 
+         Number_Pos_Nodes = scale01(Number_Pos_Nodes), 
+         Survival = as.numeric(Survival)-1)
+#Hab_Data <- Hab_Data %>%
+ 
+# mutate(Survival = as.integer(Survival) - 1, 
+ #        Survival = ifelse(Survival == 1, TRUE, FALSE))
+
+set.seed(9)
+NNModel1 <- neuralnet(Survival~.,data = Hab_Data,linear.output = FALSE,
+                      likelihood =  TRUE, act.fct = "logistic")
+plot(NNModel1,rep = "best")
+
+NNModel2 <- neuralnet(Survival~.,data = Hab_Data,linear.output = FALSE,
+                      likelihood =  TRUE, act.fct = "logistic", hidden = c(3,3,1))
+plot(NNModel2,rep = "best")
+
+NNModel2.results = compute(NNModel2,Hab_Data)
+
+predictions = data.frame(actuals =Hab_Data$Survival ,preds =NNModel2.results$net.result)
+
+accuracy = table(predictions$actuals, predictions$preds>0.5)
+
+acc = (accuracy[1,1]+accuracy[2,2])/sum(accuracy)
+
